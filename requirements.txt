@@ -1,0 +1,5 @@
+os
+datetime
+bs4
+requests
+discord
