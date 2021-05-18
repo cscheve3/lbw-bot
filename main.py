@@ -1,4 +1,4 @@
-# bot.py
+# main.py
 
 import os
 from datetime import datetime
@@ -6,12 +6,8 @@ from bs4 import BeautifulSoup
 import requests
 import discord
 from discord.ext import commands
-# from dotenv import load_dotenv
 
-# load_dotenv()
-# BOT_TOKEN = os.getenv('DISCORD_TOKEN')
-#todo use env for deployed versions
-BOT_TOKEN = 'NzkwMDI3MjAwMzUxMDQzNjI0.X96oKg.qExzgc5gZQvG05EljgwyDeFinI8'
+BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
 is_marathon = False
 last_offer = {}
