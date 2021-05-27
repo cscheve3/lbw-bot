@@ -5,12 +5,14 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
-BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+# for local, every time do `export DISCORD_BOT_TOKEN=<value from token.txt>`
+BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN') or ''
 
 is_marathon = False
 last_offer = {}
+notification_timer_thread = None
 
 bot = commands.Bot(command_prefix='!')
 
@@ -30,7 +32,7 @@ async def on_command_error(context, error):
 
 
 @bot.command(name='update', help='gets the current LBW offer')
-async def manual_update(context):
+async def update_offer(context):
     global is_marathon
     global last_offer
 
@@ -41,22 +43,36 @@ async def manual_update(context):
     last_offer = offer_info
     is_marathon = offer_info['is_marathon']
     
-    if is_marathon: # todo notify if marathon has changed in state
-        await message.channel.send('marathon has started')
+    if marathon_change and is_marathon:
+        await context.send('marathon has started')
 
-    await context.send(embed=create_notification_embed(new_offer, offer_info))
+    await context.send(embed=create_notification_embed(offer_info, new_offer))
 
 @bot.command(name='is-marathon', help='checks whether a marathon is currently underway.')
 async def start_interval(context):
     await context.send('yes' if is_marathon else 'no')
 
 @bot.command(name='start', help='starts the notifier scheduling')
-async def start_interval(context):
-    await context.send('test')
+async def start_interval(context, interval):
+    try:
+        interval_number = int(interval)
+    except:
+        await context.send('Unrecognized interval. Please enter a number for the interval')
+        return
+    
+    run_notification_on_interval(context, interval_number * 60)
+
+    await context.send(f"Notifications on an interval of {interval_number} minutes started.\nType command 'stop' to stop the interval")
 
 @bot.command(name='stop', help='stops the notifier scheduling')
 async def stop_interval(context):
-    await context.send('test')
+    global notification_timer_thread
+    if notification_timer_thread is None:
+         await context.send('No notification interval started')
+    else:
+        notification_timer_thread.cancel()
+        notification_timer_thread = None
+        await context.send('Notificaiton interval stopped')
 
 @bot.command(name='set-interval', help='sets the notifier scheduling interval in minutes. if `auto`, itr will set it to automatically respond per day')
 async def set_interval(context, arg):
@@ -72,15 +88,35 @@ async def mute_notifications(context, notification_type):
         # mute jsut offers
         pass
     elif notification_type == 'marathon': 
-        # mute jsut marathon
+        # mute just marathon
         pass
     else:
-        await on_command_error(context, 'Unrecognized notification type.\nPlease use `all`, `offers`, or `marathon`')
+        await on_command_error(context, "Unrecognized notification type.\nPlease use 'all', 'offers', or 'marathon'")
         return
-    await context.send(f'test {notification_type}')
+    await context.send(f'muting {notification_type}')
     
+################################ Tasks
+
+
 
 ################################ Helper Functions
+
+# def notification_scheduled(context, seconds):
+#     current_offer = get_latest_lbw_offer()
+#     if is_new_offer(current_offer):
+#         context.send(embed=create_notification_embed(current_offer, True))
+    
+#     embed_to_send = create_notification_embed(current_offer, True)
+#     loop = asyncio.new_event_loop()
+#     loop.run_until_complete(context.send(embed=embed_to_send))
+
+# def run_notification_on_interval(context, seconds):
+#     global notification_timer_thread
+    
+    
+
+#     notification_timer_thread = threading.Timer(seconds, notification_scheduled, (context, seconds))
+#     notification_timer_thread.start()
 
 
 def get_latest_lbw_offer():
@@ -101,11 +137,11 @@ def get_latest_lbw_offer():
         'prices': price_data
     }
 
-def create_notification_embed(new_offer, offer_info):
+def create_notification_embed(offer_info, is_new_offer):
     global is_marathon
     # todo, if new offer , color white
 
-    embed = discord.Embed(title=f':wine_glass:{"New" if new_offer else "Current"} Offer:wine_glass:', colour=discord.Colour(0xf03d44) if is_marathon else 0, url="https://www.lastbottlewines.com/", timestamp=datetime.now())
+    embed = discord.Embed(title=f':wine_glass:{"New" if is_new_offer else "Current"} Offer:wine_glass:', colour=discord.Colour(0xf03d44) if is_marathon else 0, url="https://www.lastbottlewines.com/")
 
     embed.set_image(url=offer_info['image'])
     embed.set_thumbnail(url="https://www.lastbottlewines.com/favicon.png")
