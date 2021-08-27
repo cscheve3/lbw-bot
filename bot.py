@@ -9,10 +9,11 @@ from discord.ext import commands, tasks
 
 # for local, every time do `export DISCORD_BOT_TOKEN=<value from token.txt>`
 BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN') or ''
+NOTIFICATIONS_CHANNEL_ID = 829129887905742858
+TESTING_CHANNEL_ID = 829063368756166667
 
 is_marathon = False
 last_offer = {}
-notification_timer_thread = None
 
 bot = commands.Bot(command_prefix='!')
 
@@ -33,50 +34,56 @@ async def on_command_error(context, error):
 
 @bot.command(name='update', help='gets the current LBW offer')
 async def update_offer(context):
-    global is_marathon
-    global last_offer
+    is_new_offer, is_new_marathon = update_stored_offer_info()
 
-    offer_info = get_latest_lbw_offer()
-    new_offer = is_new_offer(offer_info)
-    marathon_change = is_marathon == offer_info['is_marathon']
+    if is_new_marathon:
+        await context.send('!!!!!!!!!!!!!!!!! Marathon has started !!!!!!!!!!!!!!!!!')
 
-    last_offer = offer_info
-    is_marathon = offer_info['is_marathon']
-    
-    if marathon_change and is_marathon:
-        await context.send('marathon has started')
-
-    await context.send(embed=create_notification_embed(offer_info, new_offer))
+    await context.send(embed=create_notification_embed(last_offer, is_new_offer))
 
 @bot.command(name='is-marathon', help='checks whether a marathon is currently underway.')
 async def start_interval(context):
     await context.send('yes' if is_marathon else 'no')
 
 @bot.command(name='start', help='starts the notifier scheduling')
-async def start_interval(context, interval):
+async def start_notification_interval(context, interval):
     try:
         interval_number = int(interval)
     except:
         await context.send('Unrecognized interval. Please enter a number for the interval')
         return
-    
-    run_notification_on_interval(context, interval_number * 60)
+
+    change_task_interval(minutes=interval_number)
+    check_offer_and_notify.start()
 
     await context.send(f"Notifications on an interval of {interval_number} minutes started.\nType command 'stop' to stop the interval")
 
 @bot.command(name='stop', help='stops the notifier scheduling')
-async def stop_interval(context):
-    global notification_timer_thread
-    if notification_timer_thread is None:
-         await context.send('No notification interval started')
+async def stop_notification_interval(context, hard_stop = False):
+    if hard_stop:
+        check_offer_and_notify.cancel()
     else:
-        notification_timer_thread.cancel()
-        notification_timer_thread = None
-        await context.send('Notificaiton interval stopped')
+        check_offer_and_notify.stop()
+    
+    await context.send('Notificaiton interval stopped')
 
-@bot.command(name='set-interval', help='sets the notifier scheduling interval in minutes. if `auto`, itr will set it to automatically respond per day')
-async def set_interval(context, arg):
-    await context.send(f'test {arg}')
+@bot.command(name='set-interval', help='sets the notifier scheduling interval in minutes or hours. Use format <n> <m=minutes | h=hours> ')
+async def set_interval(context, time, span):
+    span_string = ''
+    if span == 'h':
+        span_string = 'hours' if time != 1 else 'hour'
+        change_task_interval(hours=int(time))
+    elif span == 'm':
+        span_string = 'minutes' if time != 1 else 'minute'
+        change_task_interval(minutes=int(time))
+    elif span == 's':
+        span_string = 'seconds' if time != 1 else 'second'
+        change_task_interval(seconds=int(time))
+    else:
+        await context.send(f"Unrecognized interval notation. Please use 'm' for minutes or 'h' for hours")
+        return
+    
+    await context.send(f'setting interval to {time} {span_string}')
 
 @bot.command(name='mute', help='disables the notifier offer posts of the specified type (`all`, `offers`, or `marathon`)')
 @commands.has_role('admin')
@@ -85,7 +92,7 @@ async def mute_notifications(context, notification_type):
         # mute all notifications
         pass
     elif notification_type == 'offers': 
-        # mute jsut offers
+        # mute just offers
         pass
     elif notification_type == 'marathon': 
         # mute just marathon
@@ -95,37 +102,44 @@ async def mute_notifications(context, notification_type):
         return
     await context.send(f'muting {notification_type}')
     
+
 ################################ Tasks
 
+
+@tasks.loop(minutes=1)
+async def check_offer_and_notify():
+    channel = bot.get_channel(TESTING_CHANNEL_ID)
+    
+    is_new_offer, is_new_marathon = update_stored_offer_info()
+    
+    if is_new_marathon:
+        await channel.send('!!!!!!!!!!!!!!!!! Marathon has started !!!!!!!!!!!!!!!!!')
+    
+    if is_new_offer:
+        await channel.send(embed=create_notification_embed(last_offer, True))
 
 
 ################################ Helper Functions
 
-# def notification_scheduled(context, seconds):
-#     current_offer = get_latest_lbw_offer()
-#     if is_new_offer(current_offer):
-#         context.send(embed=create_notification_embed(current_offer, True))
-    
-#     embed_to_send = create_notification_embed(current_offer, True)
-#     loop = asyncio.new_event_loop()
-#     loop.run_until_complete(context.send(embed=embed_to_send))
+def change_task_auto_interval():
+    if is_marathon:
+        check_offer_and_notify.change_interval(minutes=1)
+    else:
+        check_offer_and_notify.change_interval(hours=24)
 
-# def run_notification_on_interval(context, seconds):
-#     global notification_timer_thread
-    
-    
+def change_task_interval(*, seconds=0, minutes = 0, hours = 0):
+    check_offer_and_notify.change_interval(seconds=seconds, minutes=minutes, hours=hours)
 
-#     notification_timer_thread = threading.Timer(seconds, notification_scheduled, (context, seconds))
-#     notification_timer_thread.start()
-
-
-def get_latest_lbw_offer():
+def get_latest_offer():
     soup = BeautifulSoup(requests.get('https://www.lastbottlewines.com/').text, 'lxml')
     
     is_marathon = soup.find('div', attrs={ 'class': 'marquee-top' }) or len(soup.find_all('div', attrs={ 'class': 'marathon' })) > 0
 
     offer_name = soup.find('h1', attrs={ 'class': 'offer-name' }).text
-    offer_image = 'http:' + soup.find('img', id='offer-image').attrs['src']
+    image_src = soup.find('img', id='offer-image')
+    offer_image = ''
+    if not image_src is None:
+        offer_image = 'http:' + soup.find('img', id='offer-image').attrs['src']
 
     price_containers = soup.find_all('div', attrs={ 'class': 'price-holder' }, limit=3)
     price_data = list(map(lambda container: (container.find('p').text, container.find('span', attrs={ 'class': 'amount' }).text), price_containers))
@@ -136,6 +150,19 @@ def get_latest_lbw_offer():
         'image': offer_image,
         'prices': price_data
     }
+
+def update_stored_offer_info():
+    global is_marathon
+    global last_offer
+
+    offer_info = get_latest_offer()
+    new_offer = is_new_offer(offer_info)
+    marathon_change = is_marathon != offer_info['is_marathon']
+
+    last_offer = offer_info
+    is_marathon = offer_info['is_marathon']
+    
+    return new_offer, marathon_change and is_marathon
 
 def create_notification_embed(offer_info, is_new_offer):
     global is_marathon
