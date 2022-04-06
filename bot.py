@@ -55,6 +55,10 @@ async def update_offer(context):
 async def start_interval(context):
     await context.send('yes' if is_marathon else 'no')
 
+@bot.command(name='get-notification-setting', help='checks whether a marathon is currently underway.')
+async def get_notification_setting(context):
+    await context.send(f"Current notification rule is {notification_rule.name}.")
+
 @bot.command(name='start', help='starts the notifier scheduling')
 async def start_notification_interval(context, interval):
     try:
@@ -95,16 +99,23 @@ async def set_interval(context, time, span):
     
     await context.send(f'setting interval to {time} {span_string}')
 
-@bot.command(name='mute', help='changes the posts of the bot to only notify for the specified type (`all`, `offers`, or `marathon`)')
+@bot.command(name='set-notification-setting', help='changes the posts of the bot to only notify for the specified type (`all`, `offers`, or `marathon`)')
 @commands.has_role('admin')
 async def change_notification_rule(context, notification_type):
     global notification_rule
 
-    if notification_type != Notification.All or notification_type != Notification.Offers or notification_type != Notification.Marathon:
-        await on_command_error(context, "Unrecognized notification type.\nPlease use 'all', 'offers', or 'marathon'")
+    if notification_type == Notification.All.value:
+        notification_rule = Notification.All
+    elif notification_type == Notification.Offers.value:
+        notification_rule = Notification.Offers
+    elif notification_type == Notification.Marathon.value:
+        notification_rule = Notification.Marathon
+    else:
+        print(notification_type, Notification.All.value, Notification.Offers.value, Notification.Marathon.value)
+        await on_command_error(context, f"Unrecognized notification type {notification_type}.\nPlease use 'all', 'offers', or 'marathon'")
         return
 
-    notification_rule = notification_type
+    print('notifuication rule', notification_rule)
 
     await context.send(f'changing notifications to only show for {notification_type}')
     
@@ -122,9 +133,10 @@ async def check_offer_and_notify():
         await channel.send('!!!!!!!!!!!!!!!!! Marathon has started !!!!!!!!!!!!!!!!!')
 
     if is_new_offer:
-        can_send_marathon = is_marathon and notification_rule == Notification.Marathon
-        can_send_offer = (not is_marathon) and notification_rule == Notification.Offers
-        if notification_rule == Notification.All or can_send_marathon or can_send_offer:
+        can_send_marathon_only = is_marathon and notification_rule == Notification.Marathon
+        can_send_offer_only = (not is_marathon) and notification_rule == Notification.Offers
+
+        if notification_rule == Notification.All or can_send_marathon_only or can_send_offer_only:
             await channel.send(embed=create_notification_embed(last_offer, True))
 
 
