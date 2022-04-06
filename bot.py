@@ -4,15 +4,25 @@ import os
 from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
+import enum
 import discord
 from discord.ext import commands, tasks
 
-# for local, every time do `export DISCORD_BOT_TOKEN=<value from token.txt>`
-BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN') or ''
+class Notification(enum.Enum):
+    All = 'all'
+    Offers = 'offers'
+    Marathon = 'marathon'
+
+# for reference
 NOTIFICATIONS_CHANNEL_ID = 829129887905742858
 TESTING_CHANNEL_ID = 829063368756166667
 
+# for local, every time do `export DISCORD_BOT_TOKEN=<value from token.txt>`
+BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN') or ''
+BOT_CHANNEL_ID = os.getenv('CHANNEL_ID') or TESTING_CHANNEL_ID
+
 is_marathon = False
+notification_rule = Notification.All
 last_offer = {}
 
 bot = commands.Bot(command_prefix='!')
@@ -85,22 +95,18 @@ async def set_interval(context, time, span):
     
     await context.send(f'setting interval to {time} {span_string}')
 
-@bot.command(name='mute', help='disables the notifier offer posts of the specified type (`all`, `offers`, or `marathon`)')
+@bot.command(name='mute', help='changes the posts of the bot to only notify for the specified type (`all`, `offers`, or `marathon`)')
 @commands.has_role('admin')
-async def mute_notifications(context, notification_type):
-    if notification_type == 'all':
-        # mute all notifications
-        pass
-    elif notification_type == 'offers': 
-        # mute just offers
-        pass
-    elif notification_type == 'marathon': 
-        # mute just marathon
-        pass
-    else:
+async def change_notification_rule(context, notification_type):
+    global notification_rule
+
+    if notification_type != Notification.All or notification_type != Notification.Offers or notification_type != Notification.Marathon:
         await on_command_error(context, "Unrecognized notification type.\nPlease use 'all', 'offers', or 'marathon'")
         return
-    await context.send(f'muting {notification_type}')
+
+    notification_rule = notification_type
+
+    await context.send(f'changing notifications to only show for {notification_type}')
     
 
 ################################ Tasks
@@ -108,15 +114,18 @@ async def mute_notifications(context, notification_type):
 
 @tasks.loop(minutes=1)
 async def check_offer_and_notify():
-    channel = bot.get_channel(TESTING_CHANNEL_ID)
+    channel = bot.get_channel(BOT_CHANNEL_ID)
     
     is_new_offer, is_new_marathon = update_stored_offer_info()
     
-    if is_new_marathon:
+    if is_new_marathon and (notification_rule == Notification.All or notification_rule == Notification.Marathon):
         await channel.send('!!!!!!!!!!!!!!!!! Marathon has started !!!!!!!!!!!!!!!!!')
-    
+
     if is_new_offer:
-        await channel.send(embed=create_notification_embed(last_offer, True))
+        can_send_marathon = is_marathon and notification_rule == Notification.Marathon
+        can_send_offer = (not is_marathon) and notification_rule == Notification.Offers
+        if notification_rule == Notification.All or can_send_marathon or can_send_offer:
+            await channel.send(embed=create_notification_embed(last_offer, True))
 
 
 ################################ Helper Functions
