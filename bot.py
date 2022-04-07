@@ -1,7 +1,6 @@
 # main.py
 
 import os
-from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
 import enum
@@ -19,7 +18,7 @@ TESTING_CHANNEL_ID = 829063368756166667
 
 # for local, every time do `export DISCORD_BOT_TOKEN=<value from token.txt>`
 BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN') or ''
-BOT_CHANNEL_ID = os.getenv('CHANNEL_ID') or TESTING_CHANNEL_ID
+NOTIFICATION_CHANNEL_ID = int(os.getenv('NOTIFICATION_CHANNEL_ID')) or TESTING_CHANNEL_ID
 
 is_marathon = False
 notification_rule = Notification.All
@@ -115,8 +114,6 @@ async def change_notification_rule(context, notification_type):
         await on_command_error(context, f"Unrecognized notification type {notification_type}.\nPlease use 'all', 'offers', or 'marathon'")
         return
 
-    print('notifuication rule', notification_rule)
-
     await context.send(f'changing notifications to only show for {notification_type}')
     
 
@@ -125,7 +122,7 @@ async def change_notification_rule(context, notification_type):
 
 @tasks.loop(minutes=1)
 async def check_offer_and_notify():
-    channel = bot.get_channel(BOT_CHANNEL_ID)
+    channel = bot.get_channel(NOTIFICATION_CHANNEL_ID)
     
     is_new_offer, is_new_marathon = update_stored_offer_info()
     
@@ -137,7 +134,7 @@ async def check_offer_and_notify():
         can_send_offer_only = (not is_marathon) and notification_rule == Notification.Offers
 
         if notification_rule == Notification.All or can_send_marathon_only or can_send_offer_only:
-            await channel.send(embed=create_notification_embed(last_offer, True))
+            await channel.send(embed=create_notification_embed(last_offer, is_new_offer))
 
 
 ################################ Helper Functions
