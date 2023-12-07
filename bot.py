@@ -18,7 +18,7 @@ TESTING_CHANNEL_ID = 829063368756166667
 
 # for local, every time do `export DISCORD_BOT_TOKEN=<value from token.txt>`
 BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN') or ''
-NOTIFICATION_CHANNEL_ID = int(os.getenv('NOTIFICATION_CHANNEL_ID')) or TESTING_CHANNEL_ID
+NOTIFICATION_CHANNEL_ID = NOTIFICATIONS_CHANNEL_ID
 
 is_marathon = False
 notification_rule = Notification.All
@@ -206,7 +206,7 @@ def create_notification_embed(offer_info, is_new_offer):
     cellar_tracker_search_link = f'https://www.cellartracker.com/list.asp?fInStock=0&Table=List&iUserOverride=0&szSearch={tokenized_name}#selected%3DW3898544_1_Kcd91961cd0541a38650e2d05f7aa1b3f'
 
     binnys_search_link = f'https://www.binnys.com/search?q={url_tokenized_name}'
-    vin_search_link = f'https://vinchicago.com/wines/search?keyword={tokenized_name}&limitstart=0&option=com_virtuemart&view=category'
+    vin_search_link = f'https://barrington.vinchicago.com/websearch_results.html?kw={tokenized_name}'
 
     embed.add_field(name='Search Links', value=f'[Google]({google_search_link})\n[Vivino]({vivino_search_link})\n[Wine Searcher]({wine_searcher_search_link})\n[Cellar Tracker]({cellar_tracker_search_link})', inline=False)
     embed.add_field(name='Shop Search Links', value=f'[Binny\'s]({binnys_search_link})\n[Vin]({vin_search_link})', inline=False)
