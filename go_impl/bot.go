@@ -9,6 +9,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// for reference
+const (
+	NotificationsChannelId = 829129887905742858
+	TestingChannelId       = 1180294950403969025
+	CommandPrefix          = "!"
+)
+
 type NotificationType int
 
 const (
@@ -17,24 +24,27 @@ const (
 	Marathon
 )
 
-// for reference
-const (
-	NotificationsChannelId = 829129887905742858
-	TestingChannelId       = 1180294950403969025
-	commandPrefix          = "!"
-)
-
 type Offer struct {
-	name  string
-	price int
+	name       string
+	priceData  []string
+	isMarathon bool
+	imageUrl   string
 }
 
-type LbwBot struct {
-	// bot interface{}
-	// TODO
+type LbwBotData struct {
 	isMarathon       bool
 	notificationRule NotificationType
-	lastOffer        Offer
+	lastOffer        *Offer
+}
+
+func (bot *LbwBotData) updateOffer(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// is_new_offer, is_new_marathon = update_stored_offer_info()
+
+	// if is_new_marathon:
+	//     await context.send('!!!!!!!!!!!!!!!!! Marathon has started !!!!!!!!!!!!!!!!!')
+
+	// await context.send(embed=create_notification_embed(last_offer, is_new_offer))
+
 }
 
 // declare bot functions
@@ -46,19 +56,32 @@ func handleAllMessages(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// Check if the message starts with the prefix
-	if strings.HasPrefix(m.Content, commandPrefix) {
-		// Remove the prefix from the message content
-		content := strings.TrimPrefix(m.Content, commandPrefix)
+	if !strings.HasPrefix(m.Content, CommandPrefix) {
+		return
+	}
 
-		// Handle the command
-		switch content {
-		case "ping":
-			s.ChannelMessageSend(m.ChannelID, "Pong!")
-		case "hello":
-			s.ChannelMessageSend(m.ChannelID, "Hello, World!")
-		default:
-			s.ChannelMessageSend(m.ChannelID, "Unknown command")
-		}
+	// Remove the prefix from the message content
+	content := strings.TrimPrefix(m.Content, CommandPrefix)
+
+	// Handle the command
+	switch content {
+	case "update":
+		s.ChannelMessageSend(m.ChannelID, "Pong!")
+	case "is-marathon":
+		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
+	case "get-notification-setting":
+		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
+		// _, err := session.ChannelMessageSendEmbed(channelID, embed)
+	case "start":
+		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
+	case "stop":
+		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
+	case "set-interval":
+		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
+	case "set-notification-setting":
+		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
+	default:
+		s.ChannelMessageSend(m.ChannelID, "Unknown command")
 	}
 }
 
@@ -86,40 +109,8 @@ func main() {
 		log.Println("Bot ", s.State.User.Username, "as ", s.State.User.Discriminator, "is connected to discord")
 	})
 
-	// Register the messageCreate handler
+	// Register the message handler
 	bot.AddHandler(handleAllMessages)
-	// bot.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// 	if strings.Contains(m.Content, "ping") {
-	// 		if ch, err := s.State.Channel(m.ChannelID); err != nil || !ch.IsThread() {
-	// 			thread, err := s.MessageThreadStartComplex(m.ChannelID, m.ID, &discordgo.ThreadStart{
-	// 				Name:                "Pong game with " + m.Author.Username,
-	// 				AutoArchiveDuration: 60,
-	// 				Invitable:           false,
-	// 				RateLimitPerUser:    10,
-	// 			})
-	// 			if err != nil {
-	// 				panic(err)
-	// 			}
-	// 			_, _ = s.ChannelMessageSend(thread.ID, "pong")
-	// 			m.ChannelID = thread.ID
-	// 		} else {
-	// 			_, _ = s.ChannelMessageSendReply(m.ChannelID, "pong", m.Reference())
-	// 		}
-	// 		games[m.ChannelID] = time.Now()
-	// 		<-time.After(timeout)
-	// 		if time.Since(games[m.ChannelID]) >= timeout {
-	// 			archived := true
-	// 			locked := true
-	// 			_, err := s.ChannelEditComplex(m.ChannelID, &discordgo.ChannelEdit{
-	// 				Archived: &archived,
-	// 				Locked:   &locked,
-	// 			})
-	// 			if err != nil {
-	// 				panic(err)
-	// 			}
-	// 		}
-	// 	}
-	// })
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)

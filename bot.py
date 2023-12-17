@@ -51,10 +51,10 @@ async def update_offer(context):
     await context.send(embed=create_notification_embed(last_offer, is_new_offer))
 
 @bot.command(name='is-marathon', help='checks whether a marathon is currently underway.')
-async def start_interval(context):
+async def isMarathon(context):
     await context.send('yes' if is_marathon else 'no')
 
-@bot.command(name='get-notification-setting', help='checks whether a marathon is currently underway.')
+@bot.command(name='get-notification-setting', help='gets the current notification setting.')
 async def get_notification_setting(context):
     await context.send(f"Current notification rule is {notification_rule.name}.")
 
@@ -203,9 +203,9 @@ def create_notification_embed(offer_info, is_new_offer):
     google_search_link = f'https://www.google.com/search?q={tokenized_name}&oq={tokenized_name}&aqs=chrome..69i57j69i61.1483j0j4&sourceid=chrome&ie=UTF-8'
     vivino_search_link = f'https://www.vivino.com/search/wines?q={tokenized_name}'
     wine_searcher_search_link = f'https://www.wine-searcher.com/find/{tokenized_name}'
-    cellar_tracker_search_link = f'https://www.cellartracker.com/list.asp?fInStock=0&Table=List&iUserOverride=0&szSearch={tokenized_name}#selected%3DW3898544_1_Kcd91961cd0541a38650e2d05f7aa1b3f'
+    cellar_tracker_search_link = f'https://www.cellartracker.com/list.asp?fInStock=0&Table=List&iUserOverride=0&szSearch={tokenized_name}'
 
-    binnys_search_link = f'https://www.binnys.com/search?q={url_tokenized_name}'
+    binnys_search_link = f'https://www.binnys.com/search/?query={url_tokenized_name}'
     vin_search_link = f'https://barrington.vinchicago.com/websearch_results.html?kw={tokenized_name}'
 
     embed.add_field(name='Search Links', value=f'[Google]({google_search_link})\n[Vivino]({vivino_search_link})\n[Wine Searcher]({wine_searcher_search_link})\n[Cellar Tracker]({cellar_tracker_search_link})', inline=False)
