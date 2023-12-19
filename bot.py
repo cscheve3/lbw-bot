@@ -149,7 +149,7 @@ def change_task_interval(*, seconds=0, minutes = 0, hours = 0):
     check_offer_and_notify.change_interval(seconds=seconds, minutes=minutes, hours=hours)
 
 def get_latest_offer():
-    soup = BeautifulSoup(requests.get('https://www.lastbottlewines.com/').text, 'lxml')
+    soup = BeautifulSoup(requests.get('https://www.lastbottlewines.com').text, 'lxml')
     
     is_marathon = soup.find('div', attrs={ 'class': 'marquee-top' }) or len(soup.find_all('div', attrs={ 'class': 'marathon' })) > 0
 

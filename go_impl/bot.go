@@ -24,9 +24,14 @@ const (
 	Marathon
 )
 
+type PriceData struct {
+	label  string
+	amount string
+}
+
 type Offer struct {
 	name       string
-	priceData  []string
+	priceData  []PriceData
 	isMarathon bool
 	imageUrl   string
 }
@@ -37,18 +42,8 @@ type LbwBotData struct {
 	lastOffer        *Offer
 }
 
-func (bot *LbwBotData) updateOffer(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// is_new_offer, is_new_marathon = update_stored_offer_info()
-
-	// if is_new_marathon:
-	//     await context.send('!!!!!!!!!!!!!!!!! Marathon has started !!!!!!!!!!!!!!!!!')
-
-	// await context.send(embed=create_notification_embed(last_offer, is_new_offer))
-
-}
-
 // declare bot functions
-func handleAllMessages(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (bot *LbwBotData) handleAllMessages(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Ignore messages sent by the bot itself
 	if m.Author.ID == s.State.User.ID {
 		log.Println("Ignoring message from myself")
@@ -66,9 +61,18 @@ func handleAllMessages(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Handle the command
 	switch content {
 	case "update":
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
+		isNewOffer, isNewMarathon := bot.UpdateOffer()
+		if isNewMarathon {
+			s.ChannelMessageSend(m.ChannelID, "!!!!!!!!!!!!!!!!! Marathon has started !!!!!!!!!!!!!!!!!")
+		}
+
+		s.ChannelMessageSendEmbed(m.ChannelID, bot.CreateNotificationEmbed(isNewOffer))
 	case "is-marathon":
-		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
+		isMarathonDisplay := "No"
+		if bot.isMarathon {
+			isMarathonDisplay = "Yes"
+		}
+		s.ChannelMessageSend(m.ChannelID, isMarathonDisplay)
 	case "get-notification-setting":
 		s.ChannelMessageSend(m.ChannelID, "Hello, World!")
 		// _, err := session.ChannelMessageSendEmbed(channelID, embed)
@@ -109,8 +113,14 @@ func main() {
 		log.Println("Bot ", s.State.User.Username, "as ", s.State.User.Discriminator, "is connected to discord")
 	})
 
+	lbwBot := LbwBotData{
+		isMarathon:       false,
+		notificationRule: All,
+		lastOffer:        nil,
+	}
+
 	// Register the message handler
-	bot.AddHandler(handleAllMessages)
+	bot.AddHandler(lbwBot.handleAllMessages)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
